@@ -25,7 +25,26 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Google 로그인 개발 빌드
+
+프로젝트 루트의 `.env.local`에 아래 공개 설정을 입력합니다.
+
+```dotenv
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=<Google 웹 OAuth 클라이언트 ID>
+EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=<iOS OAuth 클라이언트 ID>
+EXPO_PUBLIC_API_BASE_URL=https://<기기에서 접근 가능한 백엔드 호스트>
+DOMEET_ANDROID_PACKAGE=<등록한 Android 패키지 이름>
+DOMEET_IOS_BUNDLE_IDENTIFIER=<등록한 iOS 번들 ID>
+```
+
+- 웹 OAuth 클라이언트 ID는 서버의 `DOMEET_GOOGLE_CLIENT_ID`와 동일해야 합니다.
+- Android OAuth 클라이언트에는 개발 빌드의 패키지 이름과 서명 인증서 SHA-1을 등록합니다. iOS는 iOS OAuth 클라이언트 ID와 번들 ID를 사용하며 앱 설정이 역순 URL 스킴을 등록합니다.
+- `8080`에서 HTTP로 실행하는 로컬 서버를 쓸 때는 기기에서 신뢰하는 인증서가 있는 HTTPS 개발 주소를 연결합니다. 환경 변수에는 OAuth 클라이언트 비밀키를 넣지 않습니다.
+- Android 로컬 빌드는 `pnpm exec expo run:android`, iOS 로컬 빌드는 macOS에서 `pnpm exec expo run:ios`로 실행합니다. Expo Go에서는 네이티브 Google 인증을 실행할 수 없고, 웹 개발 모드에서는 기존 화면 전환 테스트 메뉴를 사용할 수 있습니다.
+- 개발 빌드에서 계정 선택과 취소를 확인합니다. 현재 서버가 토큰 검증 및 회원 조회를 마치면 `501`을 반환하며, 앱은 두밋 로그인 준비 중 안내를 표시합니다.
+
 ## Get a fresh project
+
 
 When you're ready, run:
 

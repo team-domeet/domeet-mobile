@@ -3,9 +3,11 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import type { GoogleLoginFeedback } from './google-login-api';
+import { signInWithGoogle } from './google-sign-in';
 import { loginScenarios, type LoginScenario } from './login-preview';
 
 const providers = [
@@ -32,11 +34,23 @@ const providers = [
   },
 ] as const;
 
+const feedbackMessages = {
+  buildRequired: 'Google 로그인은 Android 또는 iOS 개발 빌드에서 확인해 주세요.',
+  configuration: 'Google 로그인 설정 또는 서버 주소를 확인해 주세요.',
+  failure: 'Google 인증에 실패했어요. 다시 시도해 주세요.',
+  lookupComplete: '서버 확인을 마쳤어요. 두밋 로그인은 준비 중이에요.',
+  network: '서버에 연결할 수 없어요. 연결을 확인하고 다시 시도해 주세요.',
+  restricted: '현재 이 계정은 서비스를 이용할 수 없어요.',
+  serverUnavailable: '지금은 서버에서 로그인을 처리할 수 없어요.',
+  unavailable: '이 로그인 방식은 준비 중이에요.',
+} satisfies Record<GoogleLoginFeedback | 'unavailable', string>;
+
 export function LoginScreen() {
   const [choosingScenario, setChoosingScenario] = useState(false);
   const [pending, setPending] = useState(false);
-  const [feedback, setFeedback] = useState<'failure' | 'unavailable' | null>(null);
+  const [feedback, setFeedback] = useState<keyof typeof feedbackMessages | null>(null);
   const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const signingIn = useRef(false);
 
   useEffect(() => () => {
     if (pendingTimer.current !== null) clearTimeout(pendingTimer.current);
@@ -61,13 +75,26 @@ export function LoginScreen() {
     }, 450);
   }
 
-  function signIn(provider: (typeof providers)[number]['id']) {
-    if (pendingTimer.current !== null) return;
+  async function signIn(provider: (typeof providers)[number]['id']) {
+    if (pendingTimer.current !== null || signingIn.current) return;
     setFeedback(null);
-    if (__DEV__ && provider === 'google') {
-      setChoosingScenario(true);
-    } else {
+    if (provider !== 'google') {
       setFeedback('unavailable');
+      return;
+    }
+    if (__DEV__ && Platform.OS === 'web') {
+      setChoosingScenario(true);
+      return;
+    }
+
+    signingIn.current = true;
+    setPending(true);
+    try {
+      const result = await signInWithGoogle();
+      if (result !== 'cancelled') setFeedback(result);
+    } finally {
+      signingIn.current = false;
+      setPending(false);
     }
   }
 
@@ -127,9 +154,9 @@ export function LoginScreen() {
           {feedback && (
             <View style={styles.feedback}>
               <Text accessibilityRole="alert" style={styles.feedbackText}>
-                {feedback === 'failure' ? 'Google 인증에 실패했어요. 다시 시도해 주세요.' : '이 로그인 방식은 준비 중이에요.'}
+                {feedbackMessages[feedback]}
               </Text>
-              {feedback === 'failure' && (
+              {(feedback === 'failure' || feedback === 'network' || feedback === 'serverUnavailable') && (
                 <Pressable accessibilityRole="button" hitSlop={8} onPress={() => signIn('google')}>
                   <Text style={styles.retry}>다시 시도</Text>
                 </Pressable>
