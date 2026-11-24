@@ -6,9 +6,9 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import type { GoogleLoginFeedback } from './google-login-api';
+import type { GoogleLoginFeedback, GoogleLoginSuccess } from './google-login-api';
 import { signInWithGoogle } from './google-sign-in';
-import { loginScenarios, type LoginScenario } from './login-preview';
+import { loginScenarios, previewSuccess, signupRoutes, type LoginScenario } from './login-preview';
 
 const providers = [
   {
@@ -45,6 +45,18 @@ const feedbackMessages = {
   unavailable: '이 로그인 방식은 준비 중이에요.',
 } satisfies Record<GoogleLoginFeedback | 'unavailable', string>;
 
+function openGoogleLoginDestination(outcome: GoogleLoginSuccess) {
+  if (outcome.result === 'LOGGED_IN') {
+    router.replace('/home');
+    return;
+  }
+
+  router.push({
+    pathname: '/signup/[step]',
+    params: { step: signupRoutes[outcome.nextStep] },
+  });
+}
+
 export function LoginScreen() {
   const [choosingScenario, setChoosingScenario] = useState(false);
   const [pending, setPending] = useState(false);
@@ -67,10 +79,10 @@ export function LoginScreen() {
       setPending(false);
       if (scenario === 'failure') {
         setFeedback('failure');
-      } else if (scenario === 'home') {
-        router.replace('/home');
-      } else {
+      } else if (scenario === 'restricted' || scenario === 'temporary') {
         router.push({ pathname: '/login-preview', params: { step: scenario } });
+      } else {
+        openGoogleLoginDestination(previewSuccess[scenario]);
       }
     }, 450);
   }
@@ -91,7 +103,11 @@ export function LoginScreen() {
     setPending(true);
     try {
       const result = await signInWithGoogle();
-      if (result !== 'cancelled') setFeedback(result);
+      if (typeof result === 'object') {
+        openGoogleLoginDestination(result);
+      } else if (result !== 'cancelled') {
+        setFeedback(result);
+      }
     } finally {
       signingIn.current = false;
       setPending(false);

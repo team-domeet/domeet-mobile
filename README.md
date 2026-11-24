@@ -42,6 +42,7 @@ DOMEET_IOS_BUNDLE_IDENTIFIER=<등록한 iOS 번들 ID>
 - `8080`에서 HTTP로 실행하는 로컬 서버를 쓸 때는 기기에서 신뢰하는 인증서가 있는 HTTPS 개발 주소를 연결합니다. 환경 변수에는 OAuth 클라이언트 비밀키를 넣지 않습니다.
 - Android 로컬 빌드는 `pnpm exec expo run:android`, iOS 로컬 빌드는 macOS에서 `pnpm exec expo run:ios`로 실행합니다. Expo Go에서는 네이티브 Google 인증을 실행할 수 없고, 웹 개발 모드에서는 기존 화면 전환 테스트 메뉴를 사용할 수 있습니다.
 - 개발 빌드에서 계정 선택과 취소를 확인합니다. 현재 서버가 토큰 검증 및 회원 조회를 마치면 `501`을 반환하며, 앱은 두밋 로그인 준비 중 안내를 표시합니다.
+- 서버가 `200`과 `LOGGED_IN`을 반환하면 홈으로, `SIGNUP_REQUIRED`를 반환하면 `nextStep`에 해당하는 가입 안내 화면으로 이동합니다. 웹 개발 모드의 Google 테스트 메뉴에서도 같은 화면 전환을 확인할 수 있습니다. 세션 저장과 실제 가입 처리는 후속 작업입니다.
 
 ## Get a fresh project
 

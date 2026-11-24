@@ -1,7 +1,23 @@
-export const previewDestinations = {
+import type { GoogleLoginSuccess, SignupNextStep } from './google-login-api';
+
+export const signupRoutes = {
+  TERMS: 'terms',
+  IDENTITY_VERIFICATION: 'identity',
+  PROFILE: 'profile',
+} as const satisfies Record<SignupNextStep, string>;
+
+export const signupDestinations = {
   terms: { title: '이용약관', description: '이용약관 확인부터 가입을 시작해요.' },
   identity: { title: '본인 인증', description: '아직 완료하지 않은 본인 인증을 이어서 진행해요.' },
   profile: { title: '프로필 설정', description: '아직 완료하지 않은 프로필 설정을 이어서 진행해요.' },
+} satisfies Record<(typeof signupRoutes)[SignupNextStep], { title: string; description: string }>;
+
+export function isSignupDestination(value: unknown): value is keyof typeof signupDestinations {
+  return typeof value === 'string' && Object.hasOwn(signupDestinations, value);
+}
+
+export const previewDestinations = {
+  ...signupDestinations,
   restricted: { title: '서비스 이용 제한', description: '현재 이 계정은 서비스를 이용할 수 없어요.' },
   temporary: { title: '서비스 이용 안내', description: '현재 일부 서비스 이용이 일시적으로 제한돼요.' },
 };
@@ -22,3 +38,10 @@ export const loginScenarios = [
 ] as const;
 
 export type LoginScenario = (typeof loginScenarios)[number]['id'];
+
+export const previewSuccess = {
+  home: { result: 'LOGGED_IN' },
+  terms: { result: 'SIGNUP_REQUIRED', nextStep: 'TERMS' },
+  identity: { result: 'SIGNUP_REQUIRED', nextStep: 'IDENTITY_VERIFICATION' },
+  profile: { result: 'SIGNUP_REQUIRED', nextStep: 'PROFILE' },
+} as const satisfies Record<'home' | 'terms' | 'identity' | 'profile', GoogleLoginSuccess>;

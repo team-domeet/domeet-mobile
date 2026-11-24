@@ -7,7 +7,44 @@ export type GoogleLoginFeedback =
   | 'restricted'
   | 'serverUnavailable';
 
-export type GoogleLoginOutcome = GoogleLoginFeedback | 'cancelled';
+export type SignupNextStep = 'TERMS' | 'IDENTITY_VERIFICATION' | 'PROFILE';
+
+export type GoogleLoginSuccess =
+  | { result: 'LOGGED_IN' }
+  | { result: 'SIGNUP_REQUIRED'; nextStep: SignupNextStep };
+
+export type GoogleLoginOutcome = GoogleLoginFeedback | GoogleLoginSuccess | 'cancelled';
+
+function hasValue(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+export function parseGoogleLoginSuccess(body: unknown): GoogleLoginSuccess | null {
+  if (!body || typeof body !== 'object' || !('result' in body)) return null;
+
+  if (
+    body.result === 'LOGGED_IN' &&
+    'accessToken' in body && hasValue(body.accessToken) &&
+    'refreshToken' in body && hasValue(body.refreshToken) &&
+    'accessTokenExpiresIn' in body &&
+    typeof body.accessTokenExpiresIn === 'number' &&
+    Number.isInteger(body.accessTokenExpiresIn) &&
+    body.accessTokenExpiresIn > 0
+  ) {
+    return { result: 'LOGGED_IN' };
+  }
+
+  if (
+    body.result === 'SIGNUP_REQUIRED' &&
+    'signupToken' in body && hasValue(body.signupToken) &&
+    'nextStep' in body &&
+    (body.nextStep === 'TERMS' || body.nextStep === 'IDENTITY_VERIFICATION' || body.nextStep === 'PROFILE')
+  ) {
+    return { result: 'SIGNUP_REQUIRED', nextStep: body.nextStep };
+  }
+
+  return null;
+}
 
 export function getGoogleLoginEndpoint(baseUrl: string | undefined): string | null {
   if (!baseUrl) return null;
@@ -26,7 +63,7 @@ export function getGoogleLoginEndpoint(baseUrl: string | undefined): string | nu
 export async function submitGoogleIdToken(
   endpoint: string,
   idToken: string,
-): Promise<GoogleLoginFeedback> {
+): Promise<GoogleLoginFeedback | GoogleLoginSuccess> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12_000);
 
@@ -40,6 +77,10 @@ export async function submitGoogleIdToken(
     });
 
     switch (response.status) {
+      case 200: {
+        const body: unknown = await response.json().catch(() => null);
+        return parseGoogleLoginSuccess(body) ?? 'serverUnavailable';
+      }
       // Current AUTH-002 prototype returns 501 after verification and member lookup.
       case 501:
         return 'lookupComplete';
