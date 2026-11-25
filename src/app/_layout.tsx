@@ -3,6 +3,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { SignupSessionProvider } from '@/features/auth/signup-session';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -11,7 +12,9 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
-      <Stack screenOptions={{ headerShown: false }} />
+      <SignupSessionProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </SignupSessionProvider>
     </ThemeProvider>
   );
 }

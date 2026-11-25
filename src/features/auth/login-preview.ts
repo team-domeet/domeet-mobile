@@ -1,4 +1,4 @@
-import type { GoogleLoginSuccess, SignupNextStep } from './google-login-api';
+import type { SignupNextStep } from './google-login-api';
 
 export const signupRoutes = {
   TERMS: 'terms',
@@ -44,4 +44,4 @@ export const previewSuccess = {
   terms: { result: 'SIGNUP_REQUIRED', nextStep: 'TERMS' },
   identity: { result: 'SIGNUP_REQUIRED', nextStep: 'IDENTITY_VERIFICATION' },
   profile: { result: 'SIGNUP_REQUIRED', nextStep: 'PROFILE' },
-} as const satisfies Record<'home' | 'terms' | 'identity' | 'profile', GoogleLoginSuccess>;
+} as const;
