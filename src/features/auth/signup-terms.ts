@@ -1,6 +1,7 @@
 export const signupTerms = [
   {
     id: 'service',
+    version: 'draft-1',
     title: '서비스 이용약관',
     paragraphs: [
       '두밋은 친구 그룹이 다른 그룹을 탐색하고, 양쪽 그룹의 투표를 거쳐 대화를 시작할 수 있는 서비스입니다. 만 19세 이상만 가입할 수 있습니다.',
@@ -11,6 +12,7 @@ export const signupTerms = [
   },
   {
     id: 'privacy',
+    version: 'draft-1',
     title: '개인정보 수집·이용 동의',
     paragraphs: [
       '가입 과정에서 소셜 계정 식별 정보를 회원 확인에, 휴대폰 본인확인 결과를 성인 여부와 중복 가입 확인에 사용합니다.',

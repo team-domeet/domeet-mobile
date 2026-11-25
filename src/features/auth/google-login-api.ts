@@ -1,3 +1,5 @@
+import { getAuthEndpoint } from './auth-endpoint';
+
 export type GoogleLoginFeedback =
   | 'buildRequired'
   | 'configuration'
@@ -54,17 +56,7 @@ export function parseGoogleLoginSuccess(body: unknown, requestStartedAt: number)
 }
 
 export function getGoogleLoginEndpoint(baseUrl: string | undefined): string | null {
-  if (!baseUrl) return null;
-
-  try {
-    const url = new URL(baseUrl);
-    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
-      return null;
-    }
-    return `${url.href.replace(/\/+$/, '')}/api/v1/auth/social-logins`;
-  } catch {
-    return null;
-  }
+  return getAuthEndpoint(baseUrl, 'social-logins');
 }
 
 export async function submitGoogleIdToken(

@@ -1,20 +1,36 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LoginDestinationScreen } from './login-destination-screen';
 import { useSignupSession } from './signup-session';
 import { signupTerms, type SignupTerm } from './signup-terms';
+import { submitSignupTerms, type SignupTermsResult } from './signup-terms-api';
 
 type TermId = SignupTerm['id'];
+
+const submissionMessages = {
+  configuration: '가입 서버 주소를 확인해 주세요.',
+  invalidConsents: '약관 목록 또는 버전이 서버와 일치하지 않아요.',
+  conflict: '현재 가입 상태에서는 약관을 제출할 수 없어요. 로그인 화면에서 다시 시작해 주세요.',
+  unavailable: '지금은 약관 동의를 저장할 수 없어요. 잠시 후 다시 시도해 주세요.',
+  network: '서버에 연결할 수 없어요. 연결을 확인하고 다시 시도해 주세요.',
+} satisfies Record<Exclude<SignupTermsResult, 'accepted' | 'invalidToken'>, string>;
 
 export function SignupTermsScreen() {
   const { session, setSession } = useSignupSession();
   const [accepted, setAccepted] = useState<Partial<Record<TermId, boolean>>>({});
   const [document, setDocument] = useState<SignupTerm | null>(null);
-  const [submissionUnavailable, setSubmissionUnavailable] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState<keyof typeof submissionMessages | null>(null);
+  const request = useRef<AbortController | null>(null);
   const allRequiredAccepted = signupTerms.every(({ id }) => accepted[id] === true);
+
+  useEffect(() => () => {
+    request.current?.abort();
+    request.current = null;
+  }, [session]);
 
   if (!session) {
     return (
@@ -29,8 +45,8 @@ export function SignupTermsScreen() {
     setAccepted((current) => ({ ...current, [id]: !current[id] }));
   }
 
-  function continueSignup() {
-    if (!allRequiredAccepted || !session) return;
+  async function continueSignup() {
+    if (!allRequiredAccepted || !session || request.current) return;
     if (session.type === 'preview') {
       router.push({ pathname: '/signup/[step]', params: { step: 'identity' } });
       return;
@@ -39,13 +55,30 @@ export function SignupTermsScreen() {
       setSession(null);
       return;
     }
-    setSubmissionUnavailable(true);
+    const controller = new AbortController();
+    request.current = controller;
+    setSubmitting(true);
+    setSubmissionError(null);
+
+    const consents = signupTerms.map(({ id, version }) => ({ id, version }));
+    const result = await submitSignupTerms(session.token, consents, controller);
+    if (request.current !== controller) return;
+
+    request.current = null;
+    setSubmitting(false);
+    if (result === 'accepted') {
+      router.replace({ pathname: '/signup/[step]', params: { step: 'identity' } });
+    } else if (result === 'invalidToken') {
+      setSession(null);
+    } else {
+      setSubmissionError(result);
+    }
   }
 
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Pressable accessibilityRole="button" onPress={() => { setSession(null); router.dismissTo('/'); }} style={styles.back}>
+        <Pressable accessibilityRole="button" disabled={submitting} onPress={() => { setSession(null); router.dismissTo('/'); }} style={styles.back}>
           <Text style={styles.link}>로그인으로 돌아가기</Text>
         </Pressable>
         <Text accessibilityRole="header" style={styles.title}>약관에 동의해 주세요</Text>
@@ -56,7 +89,8 @@ export function SignupTermsScreen() {
             <View key={term.id} style={styles.row}>
               <Pressable
                 accessibilityRole="checkbox"
-                accessibilityState={{ checked: accepted[term.id] === true }}
+                accessibilityState={{ checked: accepted[term.id] === true, disabled: submitting }}
+                disabled={submitting}
                 onPress={() => toggleTerm(term.id)}
                 style={styles.term}>
                 <View style={[styles.checkbox, accepted[term.id] && styles.checked]}>
@@ -74,16 +108,18 @@ export function SignupTermsScreen() {
             </View>
           ))}
         </View>
-        {submissionUnavailable && (
-          <Text accessibilityRole="alert" style={styles.secondary}>약관 동의 제출은 준비 중이에요.</Text>
+        {submissionError && (
+          <Text accessibilityRole="alert" style={styles.secondary}>{submissionMessages[submissionError]}</Text>
         )}
         <Pressable
           accessibilityRole="button"
-          accessibilityState={{ disabled: !allRequiredAccepted }}
-          disabled={!allRequiredAccepted}
+          accessibilityState={{ disabled: !allRequiredAccepted || submitting, busy: submitting }}
+          disabled={!allRequiredAccepted || submitting}
           onPress={continueSignup}
-          style={[styles.next, !allRequiredAccepted && styles.disabled]}>
-          <Text style={[styles.nextLabel, !allRequiredAccepted && styles.disabledLabel]}>다음</Text>
+          style={[styles.next, (!allRequiredAccepted || submitting) && styles.disabled]}>
+          <Text style={[styles.nextLabel, (!allRequiredAccepted || submitting) && styles.disabledLabel]}>
+            {submitting ? '저장 중…' : '다음'}
+          </Text>
         </Pressable>
       </ScrollView>
 
