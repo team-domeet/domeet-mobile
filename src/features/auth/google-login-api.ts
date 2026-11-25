@@ -11,7 +11,7 @@ export type SignupNextStep = 'TERMS' | 'IDENTITY_VERIFICATION' | 'PROFILE';
 
 export type GoogleLoginSuccess =
   | { result: 'LOGGED_IN' }
-  | { result: 'SIGNUP_REQUIRED'; nextStep: SignupNextStep };
+  | { result: 'SIGNUP_REQUIRED'; nextStep: SignupNextStep; signupToken: string; expiresAt: number };
 
 export type GoogleLoginOutcome = GoogleLoginFeedback | GoogleLoginSuccess | 'cancelled';
 
@@ -19,7 +19,9 @@ function hasValue(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-export function parseGoogleLoginSuccess(body: unknown): GoogleLoginSuccess | null {
+const signupTokenLifetimeMs = 15 * 60 * 1000;
+
+export function parseGoogleLoginSuccess(body: unknown, requestStartedAt: number): GoogleLoginSuccess | null {
   if (!body || typeof body !== 'object' || !('result' in body)) return null;
 
   if (
@@ -40,7 +42,12 @@ export function parseGoogleLoginSuccess(body: unknown): GoogleLoginSuccess | nul
     'nextStep' in body &&
     (body.nextStep === 'TERMS' || body.nextStep === 'IDENTITY_VERIFICATION' || body.nextStep === 'PROFILE')
   ) {
-    return { result: 'SIGNUP_REQUIRED', nextStep: body.nextStep };
+    return {
+      result: 'SIGNUP_REQUIRED',
+      nextStep: body.nextStep,
+      signupToken: body.signupToken,
+      expiresAt: requestStartedAt + signupTokenLifetimeMs,
+    };
   }
 
   return null;
@@ -64,6 +71,7 @@ export async function submitGoogleIdToken(
   endpoint: string,
   idToken: string,
 ): Promise<GoogleLoginFeedback | GoogleLoginSuccess> {
+  const requestStartedAt = Date.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12_000);
 
@@ -79,7 +87,7 @@ export async function submitGoogleIdToken(
     switch (response.status) {
       case 200: {
         const body: unknown = await response.json().catch(() => null);
-        return parseGoogleLoginSuccess(body) ?? 'serverUnavailable';
+        return parseGoogleLoginSuccess(body, requestStartedAt) ?? 'serverUnavailable';
       }
       // Current AUTH-002 prototype returns 501 after verification and member lookup.
       case 501:

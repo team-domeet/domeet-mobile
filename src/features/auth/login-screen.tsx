@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { GoogleLoginFeedback, GoogleLoginSuccess } from './google-login-api';
 import { signInWithGoogle } from './google-sign-in';
 import { loginScenarios, previewSuccess, signupRoutes, type LoginScenario } from './login-preview';
+import { useSignupSession } from './signup-session';
 
 const providers = [
   {
@@ -45,19 +46,8 @@ const feedbackMessages = {
   unavailable: '이 로그인 방식은 준비 중이에요.',
 } satisfies Record<GoogleLoginFeedback | 'unavailable', string>;
 
-function openGoogleLoginDestination(outcome: GoogleLoginSuccess) {
-  if (outcome.result === 'LOGGED_IN') {
-    router.replace('/home');
-    return;
-  }
-
-  router.push({
-    pathname: '/signup/[step]',
-    params: { step: signupRoutes[outcome.nextStep] },
-  });
-}
-
 export function LoginScreen() {
+  const { setSession } = useSignupSession();
   const [choosingScenario, setChoosingScenario] = useState(false);
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState<keyof typeof feedbackMessages | null>(null);
@@ -67,6 +57,22 @@ export function LoginScreen() {
   useEffect(() => () => {
     if (pendingTimer.current !== null) clearTimeout(pendingTimer.current);
   }, []);
+
+  function openGoogleLoginDestination(outcome: GoogleLoginSuccess | (typeof previewSuccess)[keyof typeof previewSuccess]) {
+    if (outcome.result === 'LOGGED_IN') {
+      setSession(null);
+      router.replace('/home');
+      return;
+    }
+
+    setSession('signupToken' in outcome
+      ? { type: 'authenticated', token: outcome.signupToken, expiresAt: outcome.expiresAt }
+      : { type: 'preview' });
+    router.push({
+      pathname: '/signup/[step]',
+      params: { step: signupRoutes[outcome.nextStep] },
+    });
+  }
 
   function startPreview(scenario: LoginScenario) {
     if (pendingTimer.current !== null) return;
@@ -94,6 +100,7 @@ export function LoginScreen() {
       setFeedback('unavailable');
       return;
     }
+    setSession(null);
     if (__DEV__ && Platform.OS === 'web') {
       setChoosingScenario(true);
       return;
